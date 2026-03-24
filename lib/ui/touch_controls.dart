@@ -1,9 +1,7 @@
 import 'package:flutter/material.dart';
+import 'package:flutter/gestures.dart';
 import '../utils/constants.dart';
 
-/// Jump King touch controls:
-/// - Left side: two visible buttons (← →) for movement
-/// - Right side: tap/hold to charge jump, release to jump
 class TouchControls extends StatefulWidget {
   final void Function(double dx) onMove;
   final void Function() onJumpStart;
@@ -21,14 +19,16 @@ class TouchControls extends StatefulWidget {
 }
 
 class _TouchControlsState extends State<TouchControls> {
-  bool _leftHeld = false;
-  bool _rightHeld = false;
+  // Track individual pointer IDs so multi-touch works correctly
+  int? _leftPointerId;
+  int? _rightPointerId;
+  int? _jumpPointerId;
   bool _jumpHeld = false;
 
   void _setMove() {
     double val = 0;
-    if (_leftHeld && !_rightHeld) val = -1;
-    if (_rightHeld && !_leftHeld) val = 1;
+    if (_leftPointerId != null && _rightPointerId == null) val = -1;
+    if (_rightPointerId != null && _leftPointerId == null) val = 1;
     widget.onMove(val);
   }
 
@@ -36,47 +36,95 @@ class _TouchControlsState extends State<TouchControls> {
   Widget build(BuildContext context) {
     final mq = MediaQuery.of(context);
     final w = mq.size.width;
-    final btnSize = (w * 0.12).clamp(52.0, 80.0);
-    final bottomPad = mq.padding.bottom + 20;
+    final btnSize = (w * 0.13).clamp(56.0, 84.0);
+    final bottom = mq.padding.bottom + 18.0;
 
     return Positioned.fill(
       child: Stack(
         children: [
-          // LEFT button
+          // ── LEFT ──────────────────────────────────────────────
           Positioned(
-            left: 16,
-            bottom: bottomPad,
-            child: _GameButton(
-              size: btnSize,
-              held: _leftHeld,
-              label: '◀',
-              onDown: () { setState(() => _leftHeld = true); _setMove(); },
-              onUp:   () { setState(() => _leftHeld = false); _setMove(); },
+            left: 14,
+            bottom: bottom,
+            child: Listener(
+              behavior: HitTestBehavior.opaque,
+              onPointerDown: (e) {
+                if (_leftPointerId != null) return;
+                setState(() => _leftPointerId = e.pointer);
+                _setMove();
+              },
+              onPointerUp: (e) {
+                if (e.pointer != _leftPointerId) return;
+                setState(() => _leftPointerId = null);
+                _setMove();
+              },
+              onPointerCancel: (e) {
+                if (e.pointer != _leftPointerId) return;
+                setState(() => _leftPointerId = null);
+                _setMove();
+              },
+              child: _DpadButton(
+                size: btnSize,
+                label: '◀',
+                held: _leftPointerId != null,
+              ),
             ),
           ),
 
-          // RIGHT button
+          // ── RIGHT ─────────────────────────────────────────────
           Positioned(
-            left: 16 + btnSize + 14,
-            bottom: bottomPad,
-            child: _GameButton(
-              size: btnSize,
-              held: _rightHeld,
-              label: '▶',
-              onDown: () { setState(() => _rightHeld = true); _setMove(); },
-              onUp:   () { setState(() => _rightHeld = false); _setMove(); },
+            left: 14 + btnSize + 12,
+            bottom: bottom,
+            child: Listener(
+              behavior: HitTestBehavior.opaque,
+              onPointerDown: (e) {
+                if (_rightPointerId != null) return;
+                setState(() => _rightPointerId = e.pointer);
+                _setMove();
+              },
+              onPointerUp: (e) {
+                if (e.pointer != _rightPointerId) return;
+                setState(() => _rightPointerId = null);
+                _setMove();
+              },
+              onPointerCancel: (e) {
+                if (e.pointer != _rightPointerId) return;
+                setState(() => _rightPointerId = null);
+                _setMove();
+              },
+              child: _DpadButton(
+                size: btnSize,
+                label: '▶',
+                held: _rightPointerId != null,
+              ),
             ),
           ),
 
-          // JUMP button
+          // ── JUMP ──────────────────────────────────────────────
           Positioned(
-            right: 20,
-            bottom: bottomPad,
-            child: _JumpButton(
-              size: btnSize * 1.18,
-              held: _jumpHeld,
-              onDown: () { setState(() => _jumpHeld = true); widget.onJumpStart(); },
-              onUp:   () { setState(() => _jumpHeld = false); widget.onJumpRelease(); },
+            right: 14,
+            bottom: bottom,
+            child: Listener(
+              behavior: HitTestBehavior.opaque,
+              onPointerDown: (e) {
+                if (_jumpPointerId != null) return;
+                setState(() { _jumpPointerId = e.pointer; _jumpHeld = true; });
+                widget.onJumpStart();
+              },
+              onPointerUp: (e) {
+                if (e.pointer != _jumpPointerId) return;
+                setState(() { _jumpPointerId = null; _jumpHeld = false; });
+                widget.onJumpRelease();
+              },
+              onPointerCancel: (e) {
+                if (e.pointer != _jumpPointerId) return;
+                setState(() { _jumpPointerId = null; _jumpHeld = false; });
+                widget.onJumpRelease();
+              },
+              child: _JumpButton(
+                size: btnSize * 1.2,
+                held: _jumpHeld,
+              ),
             ),
           ),
         ],
@@ -85,79 +133,115 @@ class _TouchControlsState extends State<TouchControls> {
   }
 }
 
-class _GameButton extends StatelessWidget {
+// ── D-pad button (Left / Right) ────────────────────────────────────────────
+
+class _DpadButton extends StatelessWidget {
   final double size;
-  final bool held;
   final String label;
-  final VoidCallback onDown;
-  final VoidCallback onUp;
-  const _GameButton({required this.size, required this.held, required this.label, required this.onDown, required this.onUp});
+  final bool held;
+  const _DpadButton({required this.size, required this.label, required this.held});
 
   @override
   Widget build(BuildContext context) {
-    return GestureDetector(
-      onTapDown: (_) => onDown(),
-      onTapUp: (_) => onUp(),
-      onTapCancel: onUp,
-      onPanStart: (_) => onDown(),
-      onPanEnd: (_) => onUp(),
-      onPanCancel: onUp,
-      child: AnimatedContainer(
-        duration: const Duration(milliseconds: 60),
-        width: size, height: size,
-        decoration: BoxDecoration(
-          shape: BoxShape.circle,
-          color: held ? const Color(0xFFFFD700).withOpacity(0.22) : Colors.white.withOpacity(0.08),
-          border: Border.all(
-            color: held ? const Color(0xFFFFD700).withOpacity(0.85) : Colors.white.withOpacity(0.28),
-            width: held ? 2.5 : 1.8,
-          ),
-          boxShadow: held ? [BoxShadow(color: const Color(0xFFFFD700).withOpacity(0.18), blurRadius: 14, spreadRadius: 2)] : [],
+    return AnimatedContainer(
+      duration: const Duration(milliseconds: 50),
+      width: size,
+      height: size,
+      decoration: BoxDecoration(
+        shape: BoxShape.circle,
+        gradient: RadialGradient(
+          colors: held
+              ? [const Color(0xFFFFE566), const Color(0xFFB8860B)]
+              : [const Color(0xFF3A3A5C), const Color(0xFF1A1A2E)],
         ),
-        child: Center(
-          child: Text(label, style: TextStyle(color: held ? const Color(0xFFFFD700) : Colors.white60, fontSize: size * 0.38)),
+        border: Border.all(
+          color: held
+              ? const Color(0xFFFFD700)
+              : Colors.white.withOpacity(0.22),
+          width: held ? 2.5 : 1.5,
+        ),
+        boxShadow: [
+          BoxShadow(
+            color: held
+                ? const Color(0xFFFFD700).withOpacity(0.5)
+                : Colors.black.withOpacity(0.4),
+            blurRadius: held ? 16 : 6,
+            spreadRadius: held ? 2 : 0,
+          ),
+        ],
+      ),
+      child: Center(
+        child: Text(
+          label,
+          style: TextStyle(
+            color: held ? Colors.black87 : Colors.white60,
+            fontSize: size * 0.36,
+            fontWeight: FontWeight.bold,
+          ),
         ),
       ),
     );
   }
 }
 
+// ── Jump button ────────────────────────────────────────────────────────────
+
 class _JumpButton extends StatelessWidget {
   final double size;
   final bool held;
-  final VoidCallback onDown;
-  final VoidCallback onUp;
-  const _JumpButton({required this.size, required this.held, required this.onDown, required this.onUp});
+  const _JumpButton({required this.size, required this.held});
 
   @override
   Widget build(BuildContext context) {
-    return GestureDetector(
-      onTapDown: (_) => onDown(),
-      onTapUp: (_) => onUp(),
-      onTapCancel: onUp,
-      onPanStart: (_) => onDown(),
-      onPanEnd: (_) => onUp(),
-      onPanCancel: onUp,
-      child: AnimatedContainer(
-        duration: const Duration(milliseconds: 60),
-        width: size, height: size,
-        decoration: BoxDecoration(
-          shape: BoxShape.circle,
-          color: held ? JKColors.chargeBar.withOpacity(0.28) : Colors.white.withOpacity(0.08),
-          border: Border.all(
-            color: held ? JKColors.chargeBar.withOpacity(0.9) : Colors.white.withOpacity(0.28),
-            width: held ? 2.8 : 1.8,
-          ),
-          boxShadow: held ? [BoxShadow(color: JKColors.chargeBar.withOpacity(0.3), blurRadius: 18, spreadRadius: 3)] : [],
+    return AnimatedContainer(
+      duration: const Duration(milliseconds: 50),
+      width: size,
+      height: size,
+      decoration: BoxDecoration(
+        shape: BoxShape.circle,
+        gradient: RadialGradient(
+          colors: held
+              ? [const Color(0xFFFF8C42), const Color(0xFFBF360C)]
+              : [const Color(0xFF3A3A5C), const Color(0xFF1A1A2E)],
         ),
-        child: Center(
-          child: Column(
-            mainAxisSize: MainAxisSize.min,
-            children: [
-              Text('▲', style: TextStyle(color: held ? JKColors.chargeBar : Colors.white60, fontSize: size * 0.30, height: 1.1)),
-              Text(held ? 'HOLD' : 'JUMP', style: TextStyle(color: held ? JKColors.chargeBar : Colors.white38, fontSize: size * 0.16, fontWeight: FontWeight.bold, letterSpacing: 1.2)),
-            ],
+        border: Border.all(
+          color: held
+              ? const Color(0xFFFF6F00)
+              : Colors.white.withOpacity(0.22),
+          width: held ? 2.8 : 1.5,
+        ),
+        boxShadow: [
+          BoxShadow(
+            color: held
+                ? const Color(0xFFFF6F00).withOpacity(0.55)
+                : Colors.black.withOpacity(0.4),
+            blurRadius: held ? 22 : 6,
+            spreadRadius: held ? 4 : 0,
           ),
+        ],
+      ),
+      child: Center(
+        child: Column(
+          mainAxisSize: MainAxisSize.min,
+          children: [
+            Text(
+              '▲',
+              style: TextStyle(
+                color: held ? Colors.white : Colors.white54,
+                fontSize: size * 0.28,
+                height: 1.1,
+              ),
+            ),
+            Text(
+              held ? 'HOLD' : 'JUMP',
+              style: TextStyle(
+                color: held ? Colors.white : Colors.white38,
+                fontSize: size * 0.15,
+                fontWeight: FontWeight.bold,
+                letterSpacing: 1.5,
+              ),
+            ),
+          ],
         ),
       ),
     );
