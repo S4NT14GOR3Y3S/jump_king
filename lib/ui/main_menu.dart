@@ -13,6 +13,7 @@ class MainMenuScreen extends StatefulWidget {
 class _MainMenuScreenState extends State<MainMenuScreen>
     with SingleTickerProviderStateMixin {
   late AnimationController _ctrl;
+  bool _showOrientationTip = true;
 
   @override
   void initState() {
@@ -29,6 +30,9 @@ class _MainMenuScreenState extends State<MainMenuScreen>
 
   @override
   Widget build(BuildContext context) {
+    final size = MediaQuery.of(context).size;
+    final isLandscape = size.width > size.height;
+
     return AnimatedBuilder(
       animation: _ctrl,
       builder: (context, _) {
@@ -43,80 +47,71 @@ class _MainMenuScreenState extends State<MainMenuScreen>
                 child: const SizedBox.expand(),
               ),
 
-              Center(
-                child: Column(
-                  mainAxisSize: MainAxisSize.min,
-                  children: [
-                    // Crown icon, animated bounce
-                    Transform.translate(
-                      offset: Offset(0, -6 * sin(t * 2 * pi)),
-                      child: _buildCrown(t),
-                    ),
-                    const SizedBox(height: 24),
+              // Main content
+              SafeArea(
+                child: Center(
+                  child: SingleChildScrollView(
+                    child: Column(
+                      mainAxisSize: MainAxisSize.min,
+                      children: [
+                        const SizedBox(height: 24),
 
-                    // Title
-                    ShaderMask(
-                      shaderCallback: (bounds) => const LinearGradient(
-                        colors: [Color(0xFFFFD700), Color(0xFFFFF176), Color(0xFFFFD700)],
-                      ).createShader(bounds),
-                      child: const Text(
-                        'JUMP KING',
-                        style: TextStyle(
-                          fontSize: 48,
-                          fontWeight: FontWeight.w900,
-                          color: Colors.white,
-                          letterSpacing: 6,
+                        // Crown icon, animated bounce
+                        Transform.translate(
+                          offset: Offset(0, -6 * sin(t * 2 * pi)),
+                          child: _buildCrown(t),
                         ),
-                      ),
-                    ),
+                        const SizedBox(height: 20),
 
-                    const SizedBox(height: 8),
-                    Text(
-                      'REACH THE SUMMIT',
-                      style: TextStyle(
-                        color: Colors.white.withOpacity(0.5),
-                        fontSize: 12,
-                        letterSpacing: 4,
-                      ),
-                    ),
-
-                    const SizedBox(height: 48),
-
-                    // Start button
-                    GestureDetector(
-                      onTap: widget.onStartGame,
-                      child: AnimatedContainer(
-                        duration: const Duration(milliseconds: 100),
-                        padding: const EdgeInsets.symmetric(horizontal: 40, vertical: 14),
-                        decoration: BoxDecoration(
-                          color: JKColors.menuButton,
-                          borderRadius: BorderRadius.circular(4),
-                          border: Border.all(color: JKColors.menuButtonBorder, width: 2),
-                          boxShadow: [
-                            BoxShadow(
-                              color: JKColors.menuButtonBorder.withOpacity(0.4),
-                              blurRadius: 16,
-                              spreadRadius: 2,
+                        // Title
+                        ShaderMask(
+                          shaderCallback: (bounds) => const LinearGradient(
+                            colors: [Color(0xFFFFD700), Color(0xFFFFF176), Color(0xFFFFD700)],
+                          ).createShader(bounds),
+                          child: const Text(
+                            'JUMP KING',
+                            style: TextStyle(
+                              fontSize: 46,
+                              fontWeight: FontWeight.w900,
+                              color: Colors.white,
+                              letterSpacing: 6,
                             ),
-                          ],
-                        ),
-                        child: const Text(
-                          'NEW GAME',
-                          style: TextStyle(
-                            color: JKColors.textGold,
-                            fontSize: 18,
-                            fontWeight: FontWeight.bold,
-                            letterSpacing: 3,
                           ),
                         ),
-                      ),
+
+                        const SizedBox(height: 6),
+                        Text(
+                          'REACH THE SUMMIT',
+                          style: TextStyle(
+                            color: Colors.white.withOpacity(0.45),
+                            fontSize: 12,
+                            letterSpacing: 4,
+                          ),
+                        ),
+
+                        const SizedBox(height: 36),
+
+                        // Orientation tip banner
+                        if (_showOrientationTip)
+                          _OrientationTip(
+                            isLandscape: isLandscape,
+                            onDismiss: () => setState(() => _showOrientationTip = false),
+                          ),
+
+                        const SizedBox(height: 28),
+
+                        // Start button
+                        _StartButton(onTap: widget.onStartGame, t: t),
+
+                        const SizedBox(height: 40),
+
+                        // Controls hint
+                        _buildControlsHint(),
+
+                        const SizedBox(height: 24),
+                      ],
                     ),
-
-                    const SizedBox(height: 48),
-
-                    // Controls hint
-                    _buildControlsHint(),
-                  ],
+                  ),
                 ),
               ),
             ],
@@ -135,24 +130,31 @@ class _MainMenuScreenState extends State<MainMenuScreen>
 
   Widget _buildControlsHint() {
     return Container(
-      padding: const EdgeInsets.all(12),
+      margin: const EdgeInsets.symmetric(horizontal: 32),
+      padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 14),
       decoration: BoxDecoration(
-        color: Colors.white.withOpacity(0.05),
-        borderRadius: BorderRadius.circular(6),
-        border: Border.all(color: Colors.white12),
+        color: Colors.white.withOpacity(0.04),
+        borderRadius: BorderRadius.circular(10),
+        border: Border.all(color: Colors.white.withOpacity(0.10)),
       ),
-      child: const Column(
+      child: Column(
         children: [
-          Text('HOW TO PLAY', style: TextStyle(color: JKColors.textGold, fontSize: 10, letterSpacing: 2)),
-          SizedBox(height: 8),
+          Text(
+            'CÓMO JUGAR',
+            style: TextStyle(
+              color: JKColors.textGold.withOpacity(0.9),
+              fontSize: 10,
+              letterSpacing: 3,
+              fontWeight: FontWeight.bold,
+            ),
+          ),
+          const SizedBox(height: 12),
           Row(
-            mainAxisSize: MainAxisSize.min,
-            children: [
-              _Hint(icon: '👈', text: 'Drag left side\nto move'),
-              SizedBox(width: 24),
-              _Hint(icon: '⬆️', text: 'Hold right side\nto charge jump'),
-              SizedBox(width: 24),
-              _Hint(icon: '🏔️', text: 'Reach the\nSummit!'),
+            mainAxisAlignment: MainAxisAlignment.spaceEvenly,
+            children: const [
+              _Hint(icon: '◀  ▶', text: 'Botones\nizquierda/derecha'),
+              _Hint(icon: '▲', text: 'Mantén JUMP\ny suelta para saltar'),
+              _Hint(icon: '🏔️', text: 'Llega a\nla cima'),
             ],
           ),
         ],
@@ -160,6 +162,137 @@ class _MainMenuScreenState extends State<MainMenuScreen>
     );
   }
 }
+
+// ── Orientation tip ──────────────────────────────────────────────────────────
+
+class _OrientationTip extends StatelessWidget {
+  final bool isLandscape;
+  final VoidCallback onDismiss;
+  const _OrientationTip({required this.isLandscape, required this.onDismiss});
+
+  @override
+  Widget build(BuildContext context) {
+    return Container(
+      margin: const EdgeInsets.symmetric(horizontal: 28),
+      padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 12),
+      decoration: BoxDecoration(
+        gradient: LinearGradient(
+          colors: isLandscape
+              ? [const Color(0xFF1B5E20).withOpacity(0.7), const Color(0xFF2E7D32).withOpacity(0.5)]
+              : [const Color(0xFF4A148C).withOpacity(0.7), const Color(0xFF6A1B9A).withOpacity(0.5)],
+          begin: Alignment.topLeft,
+          end: Alignment.bottomRight,
+        ),
+        borderRadius: BorderRadius.circular(10),
+        border: Border.all(
+          color: isLandscape
+              ? Colors.greenAccent.withOpacity(0.45)
+              : const Color(0xFFFFD700).withOpacity(0.45),
+          width: 1.3,
+        ),
+      ),
+      child: Row(
+        children: [
+          Text(
+            isLandscape ? '✅' : '📱',
+            style: const TextStyle(fontSize: 22),
+          ),
+          const SizedBox(width: 12),
+          Expanded(
+            child: Column(
+              crossAxisAlignment: CrossAxisAlignment.start,
+              children: [
+                Text(
+                  isLandscape ? '¡Modo ideal!' : 'Recomendación',
+                  style: TextStyle(
+                    color: isLandscape ? Colors.greenAccent : const Color(0xFFFFD700),
+                    fontWeight: FontWeight.bold,
+                    fontSize: 12,
+                    letterSpacing: 1,
+                  ),
+                ),
+                const SizedBox(height: 3),
+                Text(
+                  isLandscape
+                      ? 'Estás en horizontal — la mejor experiencia para Jump King.'
+                      : 'Rota el teléfono a horizontal para ver mejor el mapa y tener más espacio para los controles.',
+                  style: TextStyle(
+                    color: Colors.white.withOpacity(0.75),
+                    fontSize: 11,
+                    height: 1.4,
+                  ),
+                ),
+              ],
+            ),
+          ),
+          const SizedBox(width: 8),
+          GestureDetector(
+            onTap: onDismiss,
+            child: Icon(Icons.close, color: Colors.white.withOpacity(0.4), size: 16),
+          ),
+        ],
+      ),
+    );
+  }
+}
+
+// ── Start button ─────────────────────────────────────────────────────────────
+
+class _StartButton extends StatefulWidget {
+  final VoidCallback onTap;
+  final double t;
+  const _StartButton({required this.onTap, required this.t});
+
+  @override
+  State<_StartButton> createState() => _StartButtonState();
+}
+
+class _StartButtonState extends State<_StartButton> {
+  bool _pressed = false;
+
+  @override
+  Widget build(BuildContext context) {
+    double pulse = 1.0 + 0.03 * sin(widget.t * 2 * pi * 1.5);
+    return GestureDetector(
+      onTapDown: (_) => setState(() => _pressed = true),
+      onTapUp: (_) { setState(() => _pressed = false); widget.onTap(); },
+      onTapCancel: () => setState(() => _pressed = false),
+      child: Transform.scale(
+        scale: _pressed ? 0.94 : pulse,
+        child: Container(
+          padding: const EdgeInsets.symmetric(horizontal: 48, vertical: 16),
+          decoration: BoxDecoration(
+            gradient: const LinearGradient(
+              colors: [Color(0xFF6A1B9A), Color(0xFF4A148C)],
+              begin: Alignment.topLeft,
+              end: Alignment.bottomRight,
+            ),
+            borderRadius: BorderRadius.circular(6),
+            border: Border.all(color: JKColors.menuButtonBorder, width: 2),
+            boxShadow: [
+              BoxShadow(
+                color: JKColors.menuButtonBorder.withOpacity(_pressed ? 0.2 : 0.45),
+                blurRadius: _pressed ? 8 : 20,
+                spreadRadius: _pressed ? 1 : 4,
+              ),
+            ],
+          ),
+          child: const Text(
+            'NUEVA PARTIDA',
+            style: TextStyle(
+              color: JKColors.textGold,
+              fontSize: 18,
+              fontWeight: FontWeight.bold,
+              letterSpacing: 3,
+            ),
+          ),
+        ),
+      ),
+    );
+  }
+}
+
+// ── Helpers ───────────────────────────────────────────────────────────────────
 
 class _Hint extends StatelessWidget {
   final String icon, text;
@@ -169,9 +302,10 @@ class _Hint extends StatelessWidget {
   Widget build(BuildContext context) {
     return Column(
       children: [
-        Text(icon, style: const TextStyle(fontSize: 22)),
-        const SizedBox(height: 4),
-        Text(text, textAlign: TextAlign.center, style: const TextStyle(color: JKColors.textGray, fontSize: 10)),
+        Text(icon, style: const TextStyle(fontSize: 20, color: Colors.white70)),
+        const SizedBox(height: 6),
+        Text(text, textAlign: TextAlign.center,
+            style: const TextStyle(color: JKColors.textGray, fontSize: 10, height: 1.4)),
       ],
     );
   }
@@ -204,13 +338,10 @@ class _CrownPainter extends CustomPainter {
 
   @override
   void paint(Canvas canvas, Size size) {
-    final paint = Paint()
-      ..color = JKColors.menuTitle
-      ..style = PaintingStyle.fill;
+    final paint = Paint()..color = JKColors.menuTitle..style = PaintingStyle.fill;
 
     double glow = 0.4 + 0.6 * sin(t * 2 * pi).abs();
 
-    // Glow
     paint.color = JKColors.menuTitle.withOpacity(glow * 0.3);
     canvas.drawCircle(Offset(size.width / 2, size.height / 2 + 10), 35, paint);
 
@@ -228,7 +359,6 @@ class _CrownPainter extends CustomPainter {
     crown.close();
     canvas.drawPath(crown, paint);
 
-    // Jewels
     final jewelColors = [Colors.red, Colors.blue, Colors.green];
     for (int i = 0; i < 3; i++) {
       paint.color = jewelColors[i];

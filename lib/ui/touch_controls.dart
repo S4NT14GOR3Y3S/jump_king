@@ -2,8 +2,8 @@ import 'package:flutter/material.dart';
 import '../utils/constants.dart';
 
 /// Jump King touch controls:
-/// - Left half of screen: left/right movement via drag
-/// - Right half of screen: tap/hold to charge jump, release to jump
+/// - Left side: two visible buttons (← →) for movement
+/// - Right side: tap/hold to charge jump, release to jump
 class TouchControls extends StatefulWidget {
   final void Function(double dx) onMove;
   final void Function() onJumpStart;
@@ -21,178 +21,145 @@ class TouchControls extends StatefulWidget {
 }
 
 class _TouchControlsState extends State<TouchControls> {
-  // Movement (left side)
-  int? _moveTouchId;
-  double _moveStartX = 0;
-  double _currentMoveX = 0;
-  static const double _deadzone = 10.0;
-  static const double _maxDrift = 80.0;
-
-  // Jump (right side)
-  int? _jumpTouchId;
+  bool _leftHeld = false;
+  bool _rightHeld = false;
   bool _jumpHeld = false;
 
-  double get _moveValue {
-    double delta = _currentMoveX - _moveStartX;
-    if (delta.abs() < _deadzone) return 0;
-    return (delta / _maxDrift).clamp(-1.0, 1.0);
+  void _setMove() {
+    double val = 0;
+    if (_leftHeld && !_rightHeld) val = -1;
+    if (_rightHeld && !_leftHeld) val = 1;
+    widget.onMove(val);
   }
 
   @override
   Widget build(BuildContext context) {
-    final screenWidth = MediaQuery.of(context).size.width;
-    final screenHeight = MediaQuery.of(context).size.height;
-    final halfW = screenWidth / 2;
+    final mq = MediaQuery.of(context);
+    final w = mq.size.width;
+    final btnSize = (w * 0.12).clamp(52.0, 80.0);
+    final bottomPad = mq.padding.bottom + 20;
 
     return Positioned.fill(
       child: Stack(
         children: [
-          // ── Left half: movement ──────────────────────
+          // LEFT button
           Positioned(
-            left: 0, top: 0,
-            width: halfW, height: screenHeight,
-            child: Listener(
-              behavior: HitTestBehavior.opaque,
-              onPointerDown: (e) {
-                if (_moveTouchId != null) return;
-                _moveTouchId = e.pointer;
-                _moveStartX = e.position.dx;
-                _currentMoveX = e.position.dx;
-                widget.onMove(_moveValue);
-              },
-              onPointerMove: (e) {
-                if (e.pointer != _moveTouchId) return;
-                setState(() => _currentMoveX = e.position.dx);
-                widget.onMove(_moveValue);
-              },
-              onPointerUp: (e) {
-                if (e.pointer != _moveTouchId) return;
-                _moveTouchId = null;
-                _currentMoveX = _moveStartX;
-                widget.onMove(0);
-              },
-              onPointerCancel: (e) {
-                if (e.pointer != _moveTouchId) return;
-                _moveTouchId = null;
-                widget.onMove(0);
-              },
-              child: _buildMovePad(halfW, screenHeight),
+            left: 16,
+            bottom: bottomPad,
+            child: _GameButton(
+              size: btnSize,
+              held: _leftHeld,
+              label: '◀',
+              onDown: () { setState(() => _leftHeld = true); _setMove(); },
+              onUp:   () { setState(() => _leftHeld = false); _setMove(); },
             ),
           ),
 
-          // ── Right half: jump ──────────────────────────
+          // RIGHT button
           Positioned(
-            left: halfW, top: 0,
-            width: halfW, height: screenHeight,
-            child: Listener(
-              behavior: HitTestBehavior.opaque,
-              onPointerDown: (e) {
-                if (_jumpTouchId != null) return;
-                _jumpTouchId = e.pointer;
-                setState(() => _jumpHeld = true);
-                widget.onJumpStart();
-              },
-              onPointerUp: (e) {
-                if (e.pointer != _jumpTouchId) return;
-                _jumpTouchId = null;
-                setState(() => _jumpHeld = false);
-                widget.onJumpRelease();
-              },
-              onPointerCancel: (e) {
-                if (e.pointer != _jumpTouchId) return;
-                _jumpTouchId = null;
-                setState(() => _jumpHeld = false);
-                widget.onJumpRelease();
-              },
-              child: _buildJumpPad(halfW, screenHeight),
+            left: 16 + btnSize + 14,
+            bottom: bottomPad,
+            child: _GameButton(
+              size: btnSize,
+              held: _rightHeld,
+              label: '▶',
+              onDown: () { setState(() => _rightHeld = true); _setMove(); },
+              onUp:   () { setState(() => _rightHeld = false); _setMove(); },
+            ),
+          ),
+
+          // JUMP button
+          Positioned(
+            right: 20,
+            bottom: bottomPad,
+            child: _JumpButton(
+              size: btnSize * 1.18,
+              held: _jumpHeld,
+              onDown: () { setState(() => _jumpHeld = true); widget.onJumpStart(); },
+              onUp:   () { setState(() => _jumpHeld = false); widget.onJumpRelease(); },
             ),
           ),
         ],
       ),
     );
   }
+}
 
-  Widget _buildMovePad(double w, double h) {
-    return Stack(
-      children: [
-        // Background hint
-        Positioned(
-          bottom: 20, left: 10, right: 10,
-          child: Row(
-            mainAxisAlignment: MainAxisAlignment.spaceEvenly,
-            children: [
-              _ControlHint(icon: Icons.arrow_back_ios, active: _moveValue < -0.1),
-              _ControlHint(icon: Icons.arrow_forward_ios, active: _moveValue > 0.1),
-            ],
-          ),
-        ),
-        // Drag indicator
-        if (_moveTouchId != null)
-          Positioned(
-            left: _currentMoveX - 20,
-            bottom: 50,
-            child: Container(
-              width: 40, height: 40,
-              decoration: BoxDecoration(
-                shape: BoxShape.circle,
-                color: Colors.white.withOpacity(0.15),
-                border: Border.all(color: Colors.white30, width: 1.5),
-              ),
-            ),
-          ),
-      ],
-    );
-  }
+class _GameButton extends StatelessWidget {
+  final double size;
+  final bool held;
+  final String label;
+  final VoidCallback onDown;
+  final VoidCallback onUp;
+  const _GameButton({required this.size, required this.held, required this.label, required this.onDown, required this.onUp});
 
-  Widget _buildJumpPad(double w, double h) {
-    return Stack(
-      children: [
-        Positioned(
-          bottom: 20,
-          right: 20,
-          child: AnimatedContainer(
-            duration: const Duration(milliseconds: 80),
-            width: 72,
-            height: 72,
-            decoration: BoxDecoration(
-              shape: BoxShape.circle,
-              color: _jumpHeld
-                  ? JKColors.chargeBar.withOpacity(0.4)
-                  : Colors.white.withOpacity(0.08),
-              border: Border.all(
-                color: _jumpHeld ? JKColors.chargeBar : Colors.white24,
-                width: _jumpHeld ? 2.5 : 1.5,
-              ),
-            ),
-            child: Center(
-              child: Text(
-                _jumpHeld ? 'HOLD' : 'JUMP',
-                style: TextStyle(
-                  color: _jumpHeld ? JKColors.chargeBar : Colors.white60,
-                  fontSize: 11,
-                  fontWeight: FontWeight.bold,
-                  letterSpacing: 1,
-                ),
-              ),
-            ),
+  @override
+  Widget build(BuildContext context) {
+    return GestureDetector(
+      onTapDown: (_) => onDown(),
+      onTapUp: (_) => onUp(),
+      onTapCancel: onUp,
+      onPanStart: (_) => onDown(),
+      onPanEnd: (_) => onUp(),
+      onPanCancel: onUp,
+      child: AnimatedContainer(
+        duration: const Duration(milliseconds: 60),
+        width: size, height: size,
+        decoration: BoxDecoration(
+          shape: BoxShape.circle,
+          color: held ? const Color(0xFFFFD700).withOpacity(0.22) : Colors.white.withOpacity(0.08),
+          border: Border.all(
+            color: held ? const Color(0xFFFFD700).withOpacity(0.85) : Colors.white.withOpacity(0.28),
+            width: held ? 2.5 : 1.8,
           ),
+          boxShadow: held ? [BoxShadow(color: const Color(0xFFFFD700).withOpacity(0.18), blurRadius: 14, spreadRadius: 2)] : [],
         ),
-      ],
+        child: Center(
+          child: Text(label, style: TextStyle(color: held ? const Color(0xFFFFD700) : Colors.white60, fontSize: size * 0.38)),
+        ),
+      ),
     );
   }
 }
 
-class _ControlHint extends StatelessWidget {
-  final IconData icon;
-  final bool active;
-  const _ControlHint({required this.icon, required this.active});
+class _JumpButton extends StatelessWidget {
+  final double size;
+  final bool held;
+  final VoidCallback onDown;
+  final VoidCallback onUp;
+  const _JumpButton({required this.size, required this.held, required this.onDown, required this.onUp});
 
   @override
   Widget build(BuildContext context) {
-    return AnimatedOpacity(
-      opacity: active ? 1.0 : 0.25,
-      duration: const Duration(milliseconds: 60),
-      child: Icon(icon, color: Colors.white, size: 22),
+    return GestureDetector(
+      onTapDown: (_) => onDown(),
+      onTapUp: (_) => onUp(),
+      onTapCancel: onUp,
+      onPanStart: (_) => onDown(),
+      onPanEnd: (_) => onUp(),
+      onPanCancel: onUp,
+      child: AnimatedContainer(
+        duration: const Duration(milliseconds: 60),
+        width: size, height: size,
+        decoration: BoxDecoration(
+          shape: BoxShape.circle,
+          color: held ? JKColors.chargeBar.withOpacity(0.28) : Colors.white.withOpacity(0.08),
+          border: Border.all(
+            color: held ? JKColors.chargeBar.withOpacity(0.9) : Colors.white.withOpacity(0.28),
+            width: held ? 2.8 : 1.8,
+          ),
+          boxShadow: held ? [BoxShadow(color: JKColors.chargeBar.withOpacity(0.3), blurRadius: 18, spreadRadius: 3)] : [],
+        ),
+        child: Center(
+          child: Column(
+            mainAxisSize: MainAxisSize.min,
+            children: [
+              Text('▲', style: TextStyle(color: held ? JKColors.chargeBar : Colors.white60, fontSize: size * 0.30, height: 1.1)),
+              Text(held ? 'HOLD' : 'JUMP', style: TextStyle(color: held ? JKColors.chargeBar : Colors.white38, fontSize: size * 0.16, fontWeight: FontWeight.bold, letterSpacing: 1.2)),
+            ],
+          ),
+        ),
+      ),
     );
   }
 }

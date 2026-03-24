@@ -159,16 +159,7 @@ class _GameScreenState extends State<GameScreen>
                   onJumpStart: _onJumpStart,
                   onJumpRelease: _onJumpRelease,
                 ),
-              if (engine.state == GameState.playing)
-                const Positioned(
-                  bottom: 8, left: 0, right: 0,
-                  child: Center(
-                    child: Text(
-                      '← → move    SPACE hold & release to jump',
-                      style: TextStyle(color: Colors.white24, fontSize: 10),
-                    ),
-                  ),
-                ),
+              // keyboard hint removed for mobile — controls shown in touch buttons
             ],
 
             if (engine.state == GameState.victory)
